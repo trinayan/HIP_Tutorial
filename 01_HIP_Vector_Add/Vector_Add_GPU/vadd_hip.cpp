@@ -2,7 +2,10 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
- 
+
+
+#define HIP_ASSERT(x) (assert((x)==hipSuccess))
+
 // HIP kernel. Each thread takes care of one element of c
 __global__ void vecAdd(double *a, double *b, double *c, int n)
 {
@@ -43,9 +46,9 @@ int main( int argc, char* argv[] )
     h_verify_c = (double*)malloc(bytes);
     
     // Allocate memory for each vector on GPU
-    hipMalloc(&d_a, bytes);
-    hipMalloc(&d_b, bytes);
-    hipMalloc(&d_c, bytes);
+   HIP_ASSERT(hipMalloc(&d_a, bytes));
+   HIP_ASSERT(hipMalloc(&d_b, bytes));
+   HIP_ASSERT(hipMalloc(&d_c, bytes));
  
     int i;
     // Initialize vectors on host
@@ -57,8 +60,8 @@ int main( int argc, char* argv[] )
 
  
     // Copy host vectors to device
-    hipMemcpy( d_a, h_a, bytes, hipMemcpyHostToDevice);
-    hipMemcpy( d_b, h_b, bytes, hipMemcpyHostToDevice);
+    HIP_ASSERT(hipMemcpy( d_a, h_a, bytes, hipMemcpyHostToDevice));
+    HIP_ASSERT(hipMemcpy(d_b, h_b, bytes, hipMemcpyHostToDevice));
  
     int blockSize, gridSize;
  
@@ -73,7 +76,7 @@ int main( int argc, char* argv[] )
     hipDeviceSynchronize( );
 
     // Copy array back to host
-   hipMemcpy( h_c, d_c, bytes, hipMemcpyDeviceToHost );
+   HIP_ASSERT(hipMemcpy( h_c, d_c, bytes, hipMemcpyDeviceToHost));
  
 
    //Compute for CPU 
@@ -94,9 +97,9 @@ int main( int argc, char* argv[] )
     
      
     // Release device memory
-    hipFree(d_a);
-    hipFree(d_b);
-    hipFree(d_c);
+    HIP_ASSERT(hipFree(d_a));
+    HIP_ASSERT(hipFree(d_b));
+    HIP_ASSERT(hipFree(d_c));
  
     // Release host memory
     free(h_a);
