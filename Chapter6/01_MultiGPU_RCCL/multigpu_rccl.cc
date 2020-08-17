@@ -30,7 +30,7 @@ int main(int argc, char* argv[])
   //managing 4 devices
   int nDev = 2;
   int size = 1*1024*1024;
-  int devs[4] = { 1, 2 };
+  int devs[2] = { 1, 2 };
 
 
   //allocating and initializing device buffers
@@ -39,6 +39,7 @@ int main(int argc, char* argv[])
   hipStream_t* s = (hipStream_t*)malloc(sizeof(hipStream_t)*nDev);
 
 
+  printf("Initalizing buffers for the device\n");
   for (int i = 0; i < nDev; ++i) {
     HIPCHECK(hipSetDevice(i));
     HIPCHECK(hipMalloc(sendbuff + i, size * sizeof(float)));
@@ -50,11 +51,13 @@ int main(int argc, char* argv[])
 
 
   //initializing NCCL
+  printf("Initializing the communicator \n");
   NCCLCHECK(ncclCommInitAll(comms, nDev, devs));
 
 
-   //calling NCCL communication API. Group API is required when using
+  //calling NCCL communication API. Group API is required when using
    //multiple devices per thread
+  printf("Performing All Reduce \n");
   NCCLCHECK(ncclGroupStart());
   for (int i = 0; i < nDev; ++i)
     NCCLCHECK(ncclAllReduce((const void*)sendbuff[i], (void*)recvbuff[i], size, ncclFloat, ncclSum,
@@ -67,8 +70,10 @@ int main(int argc, char* argv[])
     HIPCHECK(hipSetDevice(i));
     HIPCHECK(hipStreamSynchronize(s[i]));
   }
+  printf("All Reduce Complete. Streams synchronized\n");
 
 
+  printf("Freeing device buffers and destroying communicator\n");
   //free device buffers
   for (int i = 0; i < nDev; ++i) {
     HIPCHECK(hipSetDevice(i));
