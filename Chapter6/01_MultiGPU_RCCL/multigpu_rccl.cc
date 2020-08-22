@@ -24,40 +24,42 @@
 
 int main(int argc, char* argv[])
 {
-  ncclComm_t comms[2];
+  ncclComm_t comms[4];
 
 
   //managing 4 devices
-  int nDev = 2;
-  int size = 1*1024*1024;
-  int devs[2] = { 1, 2 };
+  int nDev = 4;
+  int size = 100;
+  int devs[4] = { 0, 1, 2, 3 };
 
 
   //allocating and initializing device buffers
   float** sendbuff = (float**)malloc(nDev * sizeof(float*));
   float** recvbuff = (float**)malloc(nDev * sizeof(float*));
   hipStream_t* s = (hipStream_t*)malloc(sizeof(hipStream_t)*nDev);
+  float* hostSendBuf = (float *)malloc(size * sizeof(float));
+  float* hostRecvBuf = (float *)malloc(size * sizeof(float));
 
+  for (int i = 0; i < size; i++) {
+    hostSendBuf[i] = 1;
+    hostRecvBuf[i] = 0;
+  }
 
-  printf("Initalizing buffers for the device\n");
   for (int i = 0; i < nDev; ++i) {
     HIPCHECK(hipSetDevice(i));
     HIPCHECK(hipMalloc(sendbuff + i, size * sizeof(float)));
     HIPCHECK(hipMalloc(recvbuff + i, size * sizeof(float)));
-    HIPCHECK(hipMemset(sendbuff[i], 1, size * sizeof(float)));
-    HIPCHECK(hipMemset(recvbuff[i], 0, size * sizeof(float)));
+    HIPCHECK(hipMemcpy(sendbuff[i], hostSendBuf, size * sizeof(float), hipMemcpyHostToDevice));
+    HIPCHECK(hipMemcpy(recvbuff[i], hostRecvBuf, size * sizeof(float), hipMemcpyHostToDevice));
     HIPCHECK(hipStreamCreate(s+i));
+    HIPCHECK(hipDeviceSynchronize());
   }
 
-
   //initializing NCCL
-  printf("Initializing the communicator \n");
   NCCLCHECK(ncclCommInitAll(comms, nDev, devs));
 
-
   //calling NCCL communication API. Group API is required when using
-   //multiple devices per thread
-  printf("Performing All Reduce \n");
+  //multiple devices per thread
   NCCLCHECK(ncclGroupStart());
   for (int i = 0; i < nDev; ++i)
     NCCLCHECK(ncclAllReduce((const void*)sendbuff[i], (void*)recvbuff[i], size, ncclFloat, ncclSum,
@@ -70,10 +72,18 @@ int main(int argc, char* argv[])
     HIPCHECK(hipSetDevice(i));
     HIPCHECK(hipStreamSynchronize(s[i]));
   }
-  printf("All Reduce Complete. Streams synchronized\n");
+ 
+  HIPCHECK(hipSetDevice(0));
+  HIPCHECK(hipMemcpy(hostRecvBuf, recvbuff[0], size*sizeof(float), hipMemcpyDeviceToHost));
+  HIPCHECK(hipDeviceSynchronize());
+  printf("Printing output buffer on device 0 after all reduce\n");
+  for (int i = 0; i < 8; i++) {
+    printf("%f\n ", hostRecvBuf[i]);
+  }
+  printf("\n");
 
 
-  printf("Freeing device buffers and destroying communicator\n");
+
   //free device buffers
   for (int i = 0; i < nDev; ++i) {
     HIPCHECK(hipSetDevice(i));
@@ -90,3 +100,4 @@ int main(int argc, char* argv[])
   printf("Success \n");
   return 0;
 }
+
