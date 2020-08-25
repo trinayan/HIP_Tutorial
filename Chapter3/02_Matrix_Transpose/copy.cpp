@@ -52,7 +52,9 @@ int main() {
   int block_y = height / tile_dim;
 
 
-  //GPU Kernel Launch
+   hipLaunchKernelGGL(copy_kernel, dim3(block_x, block_y),
+                      dim3(tile_dim, tile_dim), 0, 0, d_in, d_out, width,
+                      height);
 
   hipMemcpy(matrix_out.data(), d_out, width * height * sizeof(float),
             hipMemcpyDeviceToHost);
