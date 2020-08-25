@@ -3,19 +3,20 @@
 #include <cstdlib>
 #include <vector>
 
-const static int width = 32;
-const static int height = 32;
+const static int width = 3072;
+const static int height = 3072;
 const static int tile_dim = 32;
 
-__global__ void transpose_kernel(float *in, float *out, int width, int height) {
+__global__ void copy_kernel(float *in, float *out, int width, int height) {
   int x_index = blockIdx.x * tile_dim + threadIdx.x;
   int y_index = blockIdx.y * tile_dim + threadIdx.y;
 
-  int in_index = y_index * width + x_index;
-  int out_index = x_index * height + y_index;
+  int index = y_index * width + x_index;
 
-  out[out_index] = in[in_index];
+  out[index] = in[index];
 }
+
+
 
 int main() {
   std::vector<float> matrix_in;
@@ -26,14 +27,6 @@ int main() {
 
   for (int i = 0; i < width * height; i++) {
     matrix_in[i] = (float)rand() / (float)RAND_MAX;
-  }
-
-  printf("\nInput matrix:\n");
-  for (int i = 0; i < height; i++) {
-    for (int j = 0; j < width; j++) {
-      printf("%.2f ", matrix_in[i*width + j]);
-    }
-    printf("\n");
   }
 
 
@@ -47,23 +40,21 @@ int main() {
   hipMemcpy(d_in, matrix_in.data(), width * height * sizeof(float),
             hipMemcpyHostToDevice);
 
+  printf("Setup complete. Launching kernel \n");
   int block_x = width / tile_dim;
   int block_y = height / tile_dim;
 
-  hipLaunchKernelGGL(transpose_kernel, dim3(block_x, block_y),
+   hipLaunchKernelGGL(transpose_kernel, dim3(block_x, block_y),
                       dim3(tile_dim, tile_dim), 0, 0, d_in, d_out, width,
                       height);
-  hipMemcpy(matrix_out.data(), d_out, width * height * sizeof(float),
-            hipMemcpyDeviceToHost);
-  hipDeviceSynchronize();
 
-  printf("\nOutput matrix:\n");
-  for (int i = 0; i < height; i++) {
-    for (int j = 0; j < width; j++) {
-      printf("%.2f ", matrix_out[i*width + j]);
-    }
-    printf("\n");
-  }
+   hipDeviceSynchronize();
+
+   printf("Kernel execution complete \n");
+ 
+   hipMemcpy(matrix_out.data(), d_out, width * height * sizeof(float),
+            hipMemcpyDeviceToHost);
+
 
   return 0;
 }

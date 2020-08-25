@@ -3,28 +3,20 @@
 #include <cstdlib>
 #include <vector>
 
-const static int width = 32;
-const static int height = 32;
+const static int width = 3072;
+const static int height = 3072;
 const static int tile_dim = 32;
 
-__global__ void transpose_lds_kernel(float *in, float *out, int width,
-                                     int height) {
-  __shared__ float tile[tile_dim][tile_dim];
+__global__ void copy_kernel(float *in, float *out, int width, int height) {
+  int x_index = blockIdx.x * tile_dim + threadIdx.x;
+  int y_index = blockIdx.y * tile_dim + threadIdx.y;
 
-  int x_tile_index = blockIdx.x * tile_dim;
-  int y_tile_index = blockIdx.y * tile_dim;
+  int index = y_index * width + x_index;
 
-  int in_index =
-      (y_tile_index + threadIdx.y) * width + (x_tile_index + threadIdx.x);
-  int out_index =
-      (x_tile_index + threadIdx.y) * height + (y_tile_index + threadIdx.x);
-
-  tile[threadIdx.y][threadIdx.x] = in[in_index];
-
-  __syncthreads();
-
-  out[out_index] = tile[threadIdx.x][threadIdx.y];
+  out[index] = in[index];
 }
+
+
 
 int main() {
   std::vector<float> matrix_in;
@@ -35,14 +27,6 @@ int main() {
 
   for (int i = 0; i < width * height; i++) {
     matrix_in[i] = (float)rand() / (float)RAND_MAX;
-  }
-
-  printf("\nInput matrix:\n");
-  for (int i = 0; i < height; i++) {
-    for (int j = 0; j < width; j++) {
-      printf("%.2f ", matrix_in[i*width + j]);
-    }
-    printf("\n");
   }
 
 
@@ -56,24 +40,21 @@ int main() {
   hipMemcpy(d_in, matrix_in.data(), width * height * sizeof(float),
             hipMemcpyHostToDevice);
 
+  printf("Setup complete. Launching kernel \n");
   int block_x = width / tile_dim;
   int block_y = height / tile_dim;
 
-   hipLaunchKernelGGL(transpose_lds_kernel, dim3(block_x, block_y),
+  hipLaunchKernelGGL(transpose_lds_kernel, dim3(block_x, block_y),
                       dim3(tile_dim, tile_dim), 0, 0, d_in, d_out, width,
                       height);
 
-  hipMemcpy(matrix_out.data(), d_out, width * height * sizeof(float),
-            hipMemcpyDeviceToHost);
-  hipDeviceSynchronize();
+   hipDeviceSynchronize();
 
-  printf("\nOutput matrix:\n");
-  for (int i = 0; i < height; i++) {
-    for (int j = 0; j < width; j++) {
-      printf("%.2f ", matrix_out[i*width + j]);
-    }
-    printf("\n");
-  }
+   printf("Kernel execution complete \n");
+ 
+   hipMemcpy(matrix_out.data(), d_out, width * height * sizeof(float),
+            hipMemcpyDeviceToHost);
+
 
   return 0;
 }
