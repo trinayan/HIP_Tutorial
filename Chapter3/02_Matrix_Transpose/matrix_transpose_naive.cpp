@@ -3,17 +3,18 @@
 #include <cstdlib>
 #include <vector>
 
-const static int width = 3072;
-const static int height = 3072;
+const static int width = 4096;
+const static int height = 4096;
 const static int tile_dim = 32;
 
-__global__ void copy_kernel(float *in, float *out, int width, int height) {
+__global__ void transpose_kernel(float *in, float *out, int width, int height) {
   int x_index = blockIdx.x * tile_dim + threadIdx.x;
   int y_index = blockIdx.y * tile_dim + threadIdx.y;
 
-  int index = y_index * width + x_index;
+  int in_index = y_index * width + x_index;
+  int out_index = x_index * height + y_index;
 
-  out[index] = in[index];
+  out[out_index] = in[in_index];
 }
 
 

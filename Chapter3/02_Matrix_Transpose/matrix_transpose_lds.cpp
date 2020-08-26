@@ -3,19 +3,28 @@
 #include <cstdlib>
 #include <vector>
 
-const static int width = 3072;
-const static int height = 3072;
+const static int width = 4096;
+const static int height = 4096;
 const static int tile_dim = 32;
 
-__global__ void copy_kernel(float *in, float *out, int width, int height) {
-  int x_index = blockIdx.x * tile_dim + threadIdx.x;
-  int y_index = blockIdx.y * tile_dim + threadIdx.y;
+__global__ void transpose_lds_kernel(float *in, float *out, int width,
+                                     int height) {
+  __shared__ float tile[tile_dim][tile_dim];
 
-  int index = y_index * width + x_index;
+  int x_tile_index = blockIdx.x * tile_dim;
+  int y_tile_index = blockIdx.y * tile_dim;
 
-  out[index] = in[index];
+  int in_index =
+      (y_tile_index + threadIdx.y) * width + (x_tile_index + threadIdx.x);
+  int out_index =
+      (x_tile_index + threadIdx.y) * height + (y_tile_index + threadIdx.x);
+
+  tile[threadIdx.y][threadIdx.x] = in[in_index];
+
+  __syncthreads();
+
+  out[out_index] = tile[threadIdx.x][threadIdx.y];
 }
-
 
 
 int main() {

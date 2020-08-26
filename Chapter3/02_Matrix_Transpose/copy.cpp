@@ -3,8 +3,8 @@
 #include <cstdlib>
 #include <vector>
 
-const static int width = 3072;
-const static int height = 3072;
+const static int width = 4096;
+const static int height = 4096;
 const static int tile_dim = 32;
 
 __global__ void copy_kernel(float *in, float *out, int width, int height) {
