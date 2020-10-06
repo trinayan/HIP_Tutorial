@@ -14,9 +14,9 @@ __global__ void vecAdd(double *a, double *b, double *c, int n)
  
     // Make sure we do not go out of bounds
     if (id < n)
-    {
-       printf("C[%d] %f\n",id, c[id]);
+    { 
        c[id] = a[id] + b[id];
+       printf("C[%d] %f\n",id, c[id]);
     }
 }
  
@@ -74,7 +74,7 @@ int main( int argc, char* argv[] )
     int blockSize, gridSize;
  
     // Number of threads in each thread block
-    blockSize = 1024;
+    blockSize = 32;
  
     // Number of thread blocks in grid
     gridSize = (int)ceil((float)n/blockSize);
